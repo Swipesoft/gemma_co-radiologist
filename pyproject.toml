@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nanoathens"
+version = "0.1.0"
+description = "Declarative DataFlow Agent SDK — schema-driven, collision-free agent framework"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Emmanuel Uramah"},
+]
+keywords = ["agent", "dataflow", "DAG", "medical-ai", "radiology", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+# Minimal dependencies — no torch/transformers required for core SDK
+dependencies = []
+
+[project.optional-dependencies]
+medgemma = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "huggingface_hub",
+]
+retrieval = [
+    "rank_bm25",
+    "faiss-cpu",
+    "sentence-transformers",
+]
+all = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "huggingface_hub",
+    "rank_bm25",
+    "faiss-cpu",
+    "sentence-transformers",
+
+]
+
+[tool.setuptools.packages.find]
+include = ["nanoathens*"]

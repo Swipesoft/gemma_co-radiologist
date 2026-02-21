@@ -1,0 +1,49 @@
+# ═══════════════════════════════════════════════════════════════
+#  Gemma Co-Radiologist — requirements.txt
+# ═══════════════════════════════════════════════════════════════
+#
+#  Install:
+#    pip install -r requirements.txt
+#
+#  On Kaggle, most of these are pre-installed. You only need:
+#    !pip install -q faiss-cpu pydantic json-repair openai
+#    !pip install -q /kaggle/input/athena-dda-sdk/athena_dda-0.1.0-py3-none-any.whl
+#
+# ═══════════════════════════════════════════════════════════════
+
+# ── Core ML (pre-installed on Kaggle GPU) ─────────────────────
+torch>=2.0
+transformers>=4.40
+accelerate
+huggingface_hub
+
+# ── Retrieval (MedSigLIP + FAISS) ────────────────────────────
+faiss-cpu
+numpy
+Pillow
+
+# ── Data / Tabular ───────────────────────────────────────────
+pandas
+scikit-learn
+tqdm
+
+# ── Pydantic (JSON schema validation for CXRReview) ──────────
+pydantic>=2.0
+
+# ── JSON repair (robust LLM output parsing) ──────────────────
+json-repair
+
+# ── Plotting ─────────────────────────────────────────────────
+matplotlib
+
+# ── GPT-4o benchmark (async API calls) ───────────────────────
+openai
+
+# ── Streamlit GUI (only needed if running the app) ───────────
+streamlit>=1.30
+
+# ── PDF report generation (optional) ─────────────────────────
+reportlab
+
+# ── BM25 tool retrieval (optional, used by SDK) ─────────────
+rank_bm25
