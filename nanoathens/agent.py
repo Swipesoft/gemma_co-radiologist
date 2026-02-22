@@ -180,6 +180,7 @@ class DeclarativeDataFlowAgent:
             "agent": "DDA",
             "status": "success" if not failed_tools else "partial",
             "context_keys": list(context.parsed_values.keys()),
+            "raw_results": dict(context.retrieved_data) # fix retrieval fall-back bug
         }
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nanoathens"
-version = "0.1.2"
+version = "0.1.3"
 description = "Declarative DataFlow Agent SDK — schema-driven, collision-free agent framework"
 readme = "README.md"
 license = {text = "Apache-2.0"}
