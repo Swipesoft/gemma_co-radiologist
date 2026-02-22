@@ -3,7 +3,7 @@ athena_dda.resolver — Goal Key Resolver
 ════════════════════════════════════════
 Maps a user query to the single target output key in the DAG.
 """
-
+import difflib
 from typing import Callable, Optional
 
 from .engine import DataFlowEngine
@@ -56,7 +56,7 @@ class GoalKeyResolver:
         ]
         try:
             raw = self.llm(
-                messages=messages, max_new_tokens=256, temperature=0.0
+                messages=messages, max_new_tokens=64, temperature=0.0
             ).strip()
             for st, et in [
                 ("<unused94>", "<unused95>"),
@@ -77,10 +77,11 @@ class GoalKeyResolver:
             if raw in self._all_keys:
                 self._log(f"LLM resolved: {raw!r}")
                 return raw
-            for k in self._all_keys:
-                if raw in k or k in raw:
-                    self._log(f"Fuzzy: {raw!r} -> {k!r}")
-                    return k
+            # Fuzzy string matching alternative
+            close = difflib.get_close_matches(raw, self._all_keys, n=1, cutoff=0.6)
+            if close:
+                self._log(f"Fuzzy: {raw!r} -> {close[0]!r}")
+                return close[0]
         except Exception as e:
             self._log(f"LLM error: {e}")
 

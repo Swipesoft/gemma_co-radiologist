@@ -1,19 +1,55 @@
 """
-athena_dda.inference — Model Inference Adapter
-════════════════════════════════════════════════
-MedGemma pipeline loader and unified LLM caller interface.
-Includes a deterministic stub for testing without GPU.
+nanoathens.inference — Model Inference Adapter
+═══════════════════════════════════════════════
+Wraps any HuggingFace image-text-to-text pipeline into
+the DDA-compatible LLM caller interface.
 """
 
 import json
 import re
 from typing import List, Optional
 
+# ── Pipeline State ────────────────────────────────────────────────────────────
+
+_pipeline = None
+
+
+def set_pipeline(pipe):
+    """Register any HF pipeline as the inference backend."""
+    global _pipeline
+    _pipeline = pipe
+
+
+def get_pipeline():
+    """Return the current pipeline (or None)."""
+    return _pipeline
+
+
+def load_medgemma(device: str = "auto"):
+    """Convenience loader for MedGemma. Requires torch + transformers."""
+    global _pipeline
+    try:
+        import torch
+        from transformers import pipeline as hf_pipeline
+
+        dev = "cuda" if torch.cuda.is_available() else "cpu"
+        _pipeline = hf_pipeline(
+            "image-text-to-text",
+            model="google/medgemma-1.5-4b-it",
+            device=dev,
+            torch_dtype=torch.bfloat16 if dev == "cuda" else torch.float32,
+        )
+        print(f"✓ MedGemma loaded on {dev}")
+    except Exception as e:
+        print(f"[WARN] MedGemma not available: {e}")
+
+
+# ── Unified LLM Caller ───────────────────────────────────────────────────────
 
 def _extract_text(content) -> str:
     """Flatten content blocks and extract text."""
     flat = []
-    for item in content if isinstance(content, list) else [content]:
+    for item in (content if isinstance(content, list) else [content]):
         if isinstance(item, list):
             flat.extend(item)
         else:
@@ -23,79 +59,24 @@ def _extract_text(content) -> str:
     )
 
 
-# ── MedGemma Pipeline ────────────────────────────────────────────────────────
-
-_medgemma_pipe = None  # Set by load_medgemma() or externally
-
-
-def load_medgemma(device: str = "auto"):
-    """Load MedGemma pipeline. Requires: pip install torch transformers"""
-    global _medgemma_pipe
-    try:
-        import torch
-        from transformers import pipeline as hf_pipeline
-
-        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-        _medgemma_pipe = hf_pipeline(
-            "image-text-to-text",
-            model="google/medgemma-1.5-4b-it",
-            device=DEVICE,
-            torch_dtype=torch.bfloat16 if DEVICE == "cuda" else torch.float32,
-        )
-        print(f"✓ MedGemma loaded on {DEVICE}")
-    except Exception as e:
-        print(f"[WARN] MedGemma not available: {e}")
-        print("[WARN] Using stub LLM. Set _medgemma_pipe externally or call load_medgemma().")
-
-
-def set_pipeline(pipe):
-    """Set an external pipeline (e.g. a custom model) as the inference backend."""
-    global _medgemma_pipe
-    _medgemma_pipe = pipe
-
-
-def run_medgemma(messages=None, max_new_tokens=4096, temperature=0.1, **kw) -> str:
-    """Multimodal LLM caller compatible with DDA SDK.
-
-    Args:
-        messages: List of {"role": ..., "content": ...} dicts.
-        max_new_tokens: Maximum tokens to generate.
-        temperature: Sampling temperature.
-
-    Returns:
-        Generated text string.
-    """
-    if messages is None:
-        return ""
-
-    # If no real pipeline, use stub
-    if _medgemma_pipe is None:
-        return _stub_llm(messages, max_new_tokens, temperature)
-
+def _reformat_messages(messages):
+    """Convert DDA message format to HF pipeline format."""
     reformatted = []
     for msg in messages:
         new_msg = {"role": msg["role"]}
         content = msg.get("content", "")
         if isinstance(content, str):
             new_msg["content"] = [
-                {
-                    "type": "text",
-                    "source_lang_code": "en",
-                    "target_lang_code": "en",
-                    "text": content,
-                }
+                {"type": "text", "source_lang_code": "en",
+                 "target_lang_code": "en", "text": content}
             ]
         elif isinstance(content, list):
             new_content = []
             for block in content:
                 if isinstance(block, dict) and block.get("type") == "text":
                     new_content.append(
-                        {
-                            "type": "text",
-                            "source_lang_code": "en",
-                            "target_lang_code": "en",
-                            "text": block.get("text", ""),
-                        }
+                        {"type": "text", "source_lang_code": "en",
+                         "target_lang_code": "en", "text": block.get("text", "")}
                     )
                 else:
                     new_content.append(block)
@@ -103,20 +84,34 @@ def run_medgemma(messages=None, max_new_tokens=4096, temperature=0.1, **kw) -> s
         else:
             new_msg["content"] = content
         reformatted.append(new_msg)
+    return reformatted
+
+
+def run_llm(messages=None, max_new_tokens=512, temperature=0.1, **kw) -> str:
+    """Call the registered pipeline with DDA-compatible message format.
+
+    Falls back to stub_llm if no pipeline is loaded.
+    """
+    if messages is None:
+        return ""
+    if _pipeline is None:
+        return _stub_llm(messages, max_new_tokens, temperature)
 
     try:
-        out = _medgemma_pipe(
-            text=reformatted,
+        out = _pipeline(
+            text=_reformat_messages(messages),
             max_new_tokens=max_new_tokens,
             do_sample=(temperature > 0),
             temperature=temperature if temperature > 0 else None,
+            pad_token_id = _pipeline.tokenizer.eos_token_id,  # ← silences the warning
         )
         generated = out[0]["generated_text"][-1]["content"]
         if isinstance(generated, list):
             return _extract_text(generated)
         return str(generated)
     except Exception as e:
-        print(f"[MedGemma] Error: {e}")
+        print(f"[LLM] Error: {e}")
+        # Return first text block as fallback
         for msg in messages:
             c = msg.get("content", "")
             if isinstance(c, list):
@@ -124,6 +119,40 @@ def run_medgemma(messages=None, max_new_tokens=4096, temperature=0.1, **kw) -> s
                     if isinstance(b, dict) and "text" in b:
                         return b["text"]
         return ""
+
+
+# Backward compatibility alias
+run_medgemma = run_llm
+
+
+# ── Minimal Stub (for testing without GPU) ────────────────────────────────────
+
+def _stub_llm(messages, max_new_tokens=512, temperature=0.1) -> str:
+    """Bare-minimum stub. Returns empty JSON for extraction prompts,
+    generic text for everything else. Override with set_stub() for
+    domain-specific testing."""
+    text = ""
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            text += content + " "
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text += block.get("text", "") + " "
+    text = text.lower()
+
+    if "which single key" in text:
+        return "verified_analysis"
+    if "json only" in text:
+        return "{}"
+    if "fill these parameters" in text:
+        return "{}"
+    return "Analysis complete. Review tool outputs for findings."
+
+
+_custom_stub = None
+
 
 
 def _stub_llm(messages, max_new_tokens=512, temperature=0.1) -> str:
@@ -246,3 +275,10 @@ def _stub_llm(messages, max_new_tokens=512, temperature=0.1) -> str:
         "Based on the clinical data provided, the analysis has been completed. "
         "Please review the tool outputs for detailed findings."
     )
+
+
+def set_stub(fn):
+    """Register a custom stub for domain-specific testing."""
+    global _custom_stub, _stub_llm
+    _custom_stub = fn
+    _stub_llm = fn

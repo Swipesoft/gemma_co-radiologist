@@ -1,5 +1,5 @@
 """
-athena_dda.context — Value Extraction & Context Bank
+athena_dda.context — Value Extraction & Context Bank (Installable SDK)
 ═════════════════════════════════════════════════════
 BaseValueExtractor, LLMValueExtractor, ContextBank.
 """
@@ -31,7 +31,7 @@ class LLMValueExtractor(BaseValueExtractor):
         if self.verbose:
             print(f"[LLMExtractor] {msg}")
 
-    def _call_llm(self, prompt, max_tokens=4096):
+    def _call_llm(self, prompt, max_tokens=512):
         messages = [
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]

@@ -11,14 +11,14 @@ Usage:
         GroundedArgumentFiller,
         DataFlowEngine,
         GoalKeyResolver,
-        DeclarativeDataFlowAgent, ConfigurableOrchestrator,
+        DeclarativeDataFlowAgent, ToolRAGAgent,
         SessionStore, SESSION_STORE,
         BM25ToolRetriever,
         run_medgemma, load_medgemma, set_pipeline,
     )
 """
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 
 # Core tool infrastructure
 from .core import (
@@ -50,7 +50,7 @@ from .engine import DataFlowEngine
 from .resolver import GoalKeyResolver
 
 # Main agent
-from .agent import DeclarativeDataFlowAgent, ConfigurableOrchestrator
+from .agent import DeclarativeDataFlowAgent, ToolRAGAgent
 
 # Session state
 from .session import SessionStore, SESSION_STORE
@@ -73,7 +73,7 @@ __all__ = [
     # Resolver
     "GoalKeyResolver",
     # Agent
-    "DeclarativeDataFlowAgent", "ConfigurableOrchestrator",
+    "DeclarativeDataFlowAgent", "ToolRAGAgent",
     # Session
     "SessionStore", "SESSION_STORE",
     # Inference

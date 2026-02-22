@@ -1,5 +1,5 @@
 """
-athena_dda.engine — DataFlow Engine
+athena_dda.engine — DataFlow Engine(Installable SDK)
 ════════════════════════════════════
 Builds a static dependency DAG from the collision-free registry.
 Resolves minimal execution paths using backward depth-first search.

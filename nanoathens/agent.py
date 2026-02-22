@@ -17,6 +17,7 @@ from .context import ContextBank, LLMValueExtractor
 from .engine import DataFlowEngine
 from .resolver import GoalKeyResolver
 from .filler import GroundedArgumentFiller
+from .retriever import BM25ToolRetriever
 
 
 class DeclarativeDataFlowAgent:
@@ -185,4 +186,75 @@ class DeclarativeDataFlowAgent:
 
 
 # Alias for user convenience
-ConfigurableOrchestrator = DeclarativeDataFlowAgent
+# ConfigurableOrchestrator = DeclarativeDataFlowAgent
+
+class ToolRAGAgent:
+    def __init__(self, registry: ToolRegistry, reasoning_caller, retrieval_strategy=BM25ToolRetriever(), top_k=5, verbose=False):
+        self.registry = registry
+        self.reasoning_llm = reasoning_caller
+        self.top_k = top_k
+        self.verbose = verbose
+        self.retriever = retrieval_strategy
+        self.retriever.rebuild_index(registry._tools)
+        self.extractor = LLMValueExtractor(reasoning_caller, verbose=False)
+        self.filler = GroundedArgumentFiller(reasoning_caller, verbose=False)
+
+    def _log(self, msg):
+        if self.verbose: print(f'[ToolRAGAgent] {msg}')
+
+    async def run(self, user_goal: str) -> Dict:
+        t0 = time.time()
+        self._log(f'Goal: {user_goal[:80]}')
+        known_keys = self.registry.get_all_context_keys()
+        context = ContextBank(self.extractor, known_keys, self.registry)
+        context.set_goal(user_goal)
+
+        # BM25 planning: LLM + BM25 retrieval
+        tools_list = '\n'.join(t.name + ': ' + t.description
+                                for t in self.registry._tools.values())
+        plan_prompt = (
+            f'List tool names needed for this request (one per line).\n'
+            f'TOOLS:\n{tools_list}\n\nREQUEST: {user_goal}\n\nNeeded tools:'
+        )
+        try:
+            plan = self.reasoning_llm(
+                messages=[{'role':'user','content':[{'type':'text','text':plan_prompt}]}],
+                max_new_tokens=256, temperature=0.1)
+        except Exception:
+            plan = user_goal
+
+        retrieved = self.retriever.retrieve(f'{user_goal} {plan}', top_k=self.top_k)
+        tools_executed = []
+
+        for tool in retrieved:
+            args = self.filler.fill_arguments(tool, context)
+            if args:
+                try:
+                    result = await self.registry.call(tool.name, args)
+                    context.add_tool_result(tool.name, str(result), tool.output_keys)
+                    tools_executed.append(tool.name)
+                    self._log(f'  OK {tool.name}')
+                except Exception as e:
+                    self._log(f'  ERR {tool.name}: {e}')
+
+        results_text = '\n'.join(f'- {t}: {r[:200]}' for t,r in context.retrieved_data.items())
+        synth_prompt = (
+            f'Summarize clinical findings for: {user_goal}\n\n'
+            f'DATA:\n{results_text or "No data."}\n\nResponse:'
+        )
+        try:
+            response = self.reasoning_llm(
+                messages=[{'role': 'user','content': [{'type': 'text', 'text':synth_prompt}]}],
+                max_new_tokens=512, temperature=0.2)
+        except Exception:
+            response = results_text
+
+        return {
+            'response': response.strip(),
+            'tools_executed': tools_executed,
+            'latency_s': round(time.time()-t0, 2),
+            'agent': 'ConfigurableOrchestrator',
+            'status': 'success',
+        }
+
+
