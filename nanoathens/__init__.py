@@ -18,7 +18,7 @@ Usage:
     )
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 # Core tool infrastructure
 from .core import (
