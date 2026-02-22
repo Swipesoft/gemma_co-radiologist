@@ -67,12 +67,32 @@ class DeclarativeDataFlowAgent:
         context = ContextBank(self.extractor, known_keys, self.registry)
         context.set_goal(user_query)
 
+        # ── [ChexPertBench FIX]: Remove hallucinated tool-output keys ──
+        # Only leaf inputs (source keys) can come from the user query.
+        # Keys produced by tools must come from actual tool execution.
+        all_tool_produced = set(self.engine._producers.keys())
+        hallucinated = [
+            k for k in context.parsed_values
+            if k in all_tool_produced and not k.startswith("_raw_")
+        ]
+        for k in hallucinated:
+            del context.parsed_values[k]
+            self._log(f"  Dropped hallucinated key: {k}", 1)
+
+        populated_keys = {
+            k for k, v in context.parsed_values.items()
+            if v is not None and v != "" and v != "None" and v != "unknown"
+        }
+        # ────────────────────────────────────────────────────────────────────
+
+        """
         populated_keys = {
             k
             for k, v in context.parsed_values.items()
             if v is not None and v != "" and v != "None" and v != "unknown"
         }
         all_tool_produced = set(self.engine._producers.keys())
+        """
         source_keys = {k for k in known_keys if k not in all_tool_produced}
         available_keys = populated_keys | source_keys
         self._log(
