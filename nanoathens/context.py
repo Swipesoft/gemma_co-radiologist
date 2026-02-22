@@ -184,11 +184,37 @@ class ContextBank:
 
     def add_tool_result(self, tool_name, result, output_keys=None):
         self.retrieved_data[tool_name] = result
-        self.parsed_values.update(
-            self.extractor.extract_from_result(
-                tool_name, result, output_keys or {}
-            )
-        )
+
+        if output_keys:
+            if len(output_keys) == 1:
+                # Single output key — the result IS the value
+                key = list(output_keys.keys())[0]
+                self.parsed_values[key] = result
+            elif isinstance(result, dict):
+                # Multiple output keys + dict result — map directly
+                for key in output_keys:
+                    if key in result:
+                        self.parsed_values[key] = result[key]
+            else:
+                # Multiple output keys + string result — try JSON parse
+                try:
+                    parsed = json.loads(result) if isinstance(result, str) else {}
+                    for key in output_keys:
+                        if key in parsed:
+                            self.parsed_values[key] = parsed[key]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Fill any remaining unmapped keys with full result as fallback
+            for key in output_keys:
+                if key not in self.parsed_values:
+                    self.parsed_values[key] = result
+
+        # LLM extraction as last resort for structured sub-values
+        llm_vals = self.extractor.extract_from_result(tool_name, result, output_keys or {})
+        for k, v in llm_vals.items():
+            if k not in self.parsed_values:
+                self.parsed_values[k] = v
 
     def has_value(self, key):
         return key in self.parsed_values
