@@ -56,7 +56,7 @@ class GoalKeyResolver:
         ]
         try:
             raw = self.llm(
-                messages=messages, max_new_tokens=40, temperature=0.0
+                messages=messages, max_new_tokens=256, temperature=0.0
             ).strip()
             for st, et in [
                 ("<unused94>", "<unused95>"),

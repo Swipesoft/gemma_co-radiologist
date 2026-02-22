@@ -162,7 +162,7 @@ class DeclarativeDataFlowAgent:
                 messages=[
                     {"role": "user", "content": [{"type": "text", "text": synth}]}
                 ],
-                max_new_tokens=512,
+                max_new_tokens=4096,
                 temperature=0.2,
             )
         except Exception:

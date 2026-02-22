@@ -31,7 +31,7 @@ class LLMValueExtractor(BaseValueExtractor):
         if self.verbose:
             print(f"[LLMExtractor] {msg}")
 
-    def _call_llm(self, prompt, max_tokens=512):
+    def _call_llm(self, prompt, max_tokens=4096):
         messages = [
             {"role": "user", "content": [{"type": "text", "text": prompt}]}
         ]

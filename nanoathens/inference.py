@@ -54,7 +54,7 @@ def set_pipeline(pipe):
     _medgemma_pipe = pipe
 
 
-def run_medgemma(messages=None, max_new_tokens=512, temperature=0.1, **kw) -> str:
+def run_medgemma(messages=None, max_new_tokens=4096, temperature=0.1, **kw) -> str:
     """Multimodal LLM caller compatible with DDA SDK.
 
     Args:
