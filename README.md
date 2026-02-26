@@ -14,6 +14,11 @@ A schema-driven, collision-free agent framework where **LLMs extract values (not
 
 nanoathens powers the **Gemma Co-Radiologist** — an agentic radiology workstation that orchestrates 16 tools through a collision-free dataflow graph to deliver autonomous, end-to-end diagnostic imaging analysis.
 
+
+![Architecture](app/architecture.png)
+*Figure 1: DeepResearch Agent orchestrator–subagent architecture*
+
+
 ```
 Patient Image + Query
         │
